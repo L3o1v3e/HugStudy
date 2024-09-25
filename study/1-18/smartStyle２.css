@@ -1,8 +1,7 @@
-@media screen and(max-width:767px) {
+@media screen and (max-width:767px) {
     .wrapper{
         width: 350px;
     }
-}
 .left{
     width: 150px;
 }
@@ -18,8 +17,37 @@
 .right{
     width: 75px;
 }
-@media screen and(max-width:479px) {
+}
+@media screen and (max-width:479px) {
     .wrapper{
         width: 150px;
     }
+.contents{
+    float: none;
+    max-width: 479px;
+    width: 100%;
+    margin-left:auto ;
+    margin-right: auto;
+}
+.header{
+    width: 150px;
+}
+.left{
+    width: 150px;
+}
+.center-up{
+    width: 150px;
+}
+.center-middle{
+    width: 150px;
+}
+.center-lower{
+    width: 150px;
+}
+.right{
+    width: 150px;
+}
+.footer{
+    width: 150px;
+}
 }

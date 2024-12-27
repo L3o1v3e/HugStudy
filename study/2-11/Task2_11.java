@@ -57,10 +57,8 @@ public class Task2_11 {
         
         for (int i = 0; i < numbers.length; i++) {
     //問題③ 奇数かどうかの判定をするために、for文で取得したnumberを2で割り、余りが0にならないような条件文(if文)を記載して下さい。
-        if((i % 2) == 0){
-            add += numbers[i];
-        }else{
-
+        if((numbers[i] % 2) == 1){
+        add += numbers[i];
         }
     }
         return add;

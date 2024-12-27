@@ -39,9 +39,9 @@ public class Task2_11 {
     * 問題②
     * int型の配列を宣言し、1から20までの偶数を格納して、ループを使用してそれらの整数を順番に表示して下さい。
     */
-    for ( int j = 1; j <= 20; j++ ) {
-		if ( 0 == ( j % 2 ) )
-			System.out.println(j);
+    int[] number = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+		for (int i = 0; i < number.length; i++) {
+            System.out.println(number[i]);
    }
     /*
     * int型の配列「numbers」内の奇数の合計を、メソッド「sumOddNumbers」を使って表示して下さい。
@@ -57,10 +57,12 @@ public class Task2_11 {
         
         for (int i = 0; i < numbers.length; i++) {
     //問題③ 奇数かどうかの判定をするために、for文で取得したnumberを2で割り、余りが0にならないような条件文(if文)を記載して下さい。
-        if(i % 2 == 0){
+        if((i % 2) == 0){
             add += numbers[i];
+        }else{
+
         }
     }
-    return add;
+        return add;
     }
 }

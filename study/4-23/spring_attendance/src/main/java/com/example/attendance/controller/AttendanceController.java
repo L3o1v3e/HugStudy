@@ -1,134 +1,138 @@
 package com.example.attendance.controller;
 
-import com.example.attendance.entity.Attendance;
+import com.example.attendance.dto.AttendanceDto;
+import com.example.attendance.entity.AttendanceEntity;
 import com.example.attendance.form.AttendanceForm;
 import com.example.attendance.service.AttendanceService;
-
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Controller
 @RequestMapping("/attendance")
+@RequiredArgsConstructor
 public class AttendanceController {
 
-	@Autowired
-	private AttendanceService attendanceService;
+    private final AttendanceService attendanceService;
 
-	/** 勤怠打刻画面 */
-	@GetMapping("/punch")
-	public String showPunchForm(Model model) {
-		AttendanceForm form = new AttendanceForm();
-		form.setWorkDate(LocalDate.now());
-		form.setCheckInTime(LocalTime.now());
-		model.addAttribute("attendanceForm", form);
-		return "attendance/punch";
-	}
+    /** 勤怠一覧表示 */
+    @GetMapping("/list")
+    public String showAttendanceList(Model model) {
+        List<AttendanceDto> attendanceList = attendanceService.findAllDtos();
+        model.addAttribute("attendanceList", attendanceList);
+        return "attendance/list";
+    }
 
-	/** 出勤・退勤処理 */
-	@PostMapping("/punch")
-	public String punchSubmit(
-			@Valid @ModelAttribute("attendanceForm") AttendanceForm form,
-			BindingResult bindingResult,
-			@RequestParam("action") String action,
-			Model model) {
+    /** 打刻フォーム表示 */
+    @GetMapping("/punch")
+    public String punchForm(Model model) {
+        AttendanceForm form = new AttendanceForm();
+        form.setWorkDate(LocalDate.now());
+        model.addAttribute("attendanceForm", form);
+        return "attendance/punch";
+    }
 
-		if (bindingResult.hasErrors()) {
-			return "attendance/punch";
-		}
+    /** 打刻処理（出勤/退勤） */
+    @PostMapping("/punch")
+    public String punchSubmit(@Valid @ModelAttribute("attendanceForm") AttendanceForm form,
+                              BindingResult result,
+                              @RequestParam String action,
+                              Model model) {
 
-		try {
-			if ("checkIn".equals(action)) {
-				attendanceService.punchIn(form);
-			} else if ("checkOut".equals(action)) {
-				attendanceService.punchOut(form);
-			} else {
-				model.addAttribute("error", "不正な操作です。");
-				return "attendance/punch";
-			}
-		} catch (Exception e) {
-			model.addAttribute("error", "打刻処理中にエラーが発生しました: " + e.getMessage());
-			return "attendance/punch";
-		}
+        if (result.hasErrors()) {
+            return "attendance/punch";
+        }
 
-		return "redirect:/attendance/list";
-	}
+        try {
+            if ("checkIn".equals(action)) {
+                attendanceService.punchIn(form);
+            } else if ("checkOut".equals(action)) {
+                attendanceService.punchOut(form);
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            result.reject("serviceError", e.getMessage());
+            return "attendance/punch";
+        }
 
-	/** 勤怠一覧画面 */
-	@GetMapping("/list")
-	public String showAttendanceList(Model model) {
-		List<Attendance> attendanceList = attendanceService.findAll();
-		model.addAttribute("attendanceList", attendanceList);
-		return "attendance/list";
-	}
+        return "redirect:/attendance/list";
+    }
 
-	// 削除確認画面
-	@GetMapping("/delete/{id}")
-	public String confirmDelete(@PathVariable Long id, Model model) {
-		Attendance attendance = attendanceService.findById(id);
-		model.addAttribute("attendance", attendance);
-		return "attendance/delete_confirm";
-	}
+    /** 編集画面表示 */
+    @GetMapping("/edit/{id}")
+    public String edit(@PathVariable Long id, Model model) {
+        AttendanceEntity entity = attendanceService.findById(id);
 
-	// 削除実行
-	@PostMapping("/delete")
-	public String deleteAttendance(@RequestParam Long id) {
-		attendanceService.deleteById(id);
-		return "redirect:/attendance/list";
-	}
+        AttendanceForm form = new AttendanceForm();
+        form.setId(entity.getId());
+        form.setEmployeeName(entity.getEmployeeName());
+        form.setWorkDate(entity.getWorkDate());
+        form.setCheckInTime(entity.getCheckInTime() != null ? entity.getCheckInTime().toLocalTime() : null);
+        form.setCheckOutTime(entity.getCheckOutTime() != null ? entity.getCheckOutTime().toLocalTime() : null);
 
-	// 編集画面の表示
-	@GetMapping("/edit/{id}")
-	public String showEditForm(@PathVariable Long id, Model model) {
-		Attendance attendance = attendanceService.findById(id);
+        model.addAttribute("attendanceForm", form);
+        return "attendance/edit";
+    }
 
-		AttendanceForm form = new AttendanceForm();
-		form.setId(attendance.getId());
-		form.setEmployeeName(attendance.getEmployeeName());
-		form.setWorkDate(attendance.getWorkDate());
+    /** 編集更新処理 */
+    @PostMapping("/edit")
+    public String editSubmit(@Valid @ModelAttribute("attendanceForm") AttendanceForm form,
+                             BindingResult result,
+                             Model model) {
 
-		if (attendance.getCheckInTime() != null) {
-			form.setCheckInTime(attendance.getCheckInTime().toLocalTime());
-		}
-		if (attendance.getCheckOutTime() != null) {
-			form.setCheckOutTime(attendance.getCheckOutTime().toLocalTime());
-		}
+        if (result.hasErrors()) {
+            return "attendance/edit";
+        }
 
-		model.addAttribute("attendanceForm", form);
-		return "attendance/edit"; // ← resources/templates/attendance/edit.html に遷移
-	}
+        AttendanceEntity entity = attendanceService.findById(form.getId());
 
-	@PostMapping("/edit")
-	public String updateAttendance(
-			@Valid @ModelAttribute("attendanceForm") AttendanceForm form,
-			BindingResult bindingResult,
-			Model model) {
+        LocalDateTime updatedCheckIn = form.getCheckInTime() != null
+                ? LocalDateTime.of(entity.getWorkDate(), form.getCheckInTime())
+                : entity.getCheckInTime();
 
-		System.out.println("✅ updateAttendance 呼び出し");
-		System.out.println("✅ フォーム内容: " + form);
+        LocalDateTime updatedCheckOut = form.getCheckOutTime() != null
+                ? LocalDateTime.of(entity.getWorkDate(), form.getCheckOutTime())
+                : entity.getCheckOutTime();
 
-		if (bindingResult.hasErrors()) {
-			System.out.println("⚠️ バリデーションエラー: " + bindingResult.getAllErrors());
-			return "attendance/edit";
-		}
+        // 出勤・退勤の時間整合性チェック
+        if (updatedCheckIn != null && updatedCheckOut != null && !updatedCheckOut.isAfter(updatedCheckIn)) {
+            result.reject("invalidTime", "退勤時刻は出勤時刻より後である必要があります");
+            return "attendance/edit";
+        }
 
-		try {
-			attendanceService.updateAttendance(form);
-			System.out.println("✅ 勤怠更新完了: " + form.getId());
-		} catch (Exception e) {
-			e.printStackTrace();
-			model.addAttribute("errorMessage", "更新処理中にエラーが発生しました: " + e.getMessage());
-			return "attendance/edit";
-		}
+        attendanceService.updateAttendancePartial(entity, updatedCheckIn, updatedCheckOut);
 
-		return "redirect:/attendance/list";
-	}
+        return "redirect:/attendance/list";
+    }
+
+    /** 削除確認画面表示 */
+    @GetMapping("/delete/{id}")
+    public String showDeleteConfirm(@PathVariable Long id, Model model) {
+        AttendanceEntity entity = attendanceService.findById(id);
+
+        // DTO に変換
+        AttendanceDto attendance = new AttendanceDto(entity);
+
+        model.addAttribute("attendance", attendance);
+        return "attendance/delete_confirm"; 
+    }
+
+    /** 削除実行 */
+    @PostMapping("/delete")
+    public String delete(@RequestParam Long id, RedirectAttributes redirectAttributes) {
+        try {
+            attendanceService.deleteById(id);
+            redirectAttributes.addFlashAttribute("success", "削除しました");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "削除に失敗しました");
+        }
+        return "redirect:/attendance/list";
+    }
 }

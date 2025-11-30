@@ -1,86 +1,72 @@
 <!DOCTYPE html>
 <html lang="ja" xmlns:th="http://www.thymeleaf.org">
-
 <head th:replace="~{common/head :: head}"></head>
-
 <body class="bg-light">
-	<header class="bg-primary text-white py-3 shadow-sm">
-		<div class="container">
-			<h1 class="h4 mb-0">簡易勤怠管理アプリ</h1>
-		</div>
-	</header>
+<header class="bg-primary text-white py-3 shadow-sm">
+    <div class="container"><h1 class="h4 mb-0">簡易勤怠管理アプリ</h1></div>
+</header>
 
-	<main class="container my-5">
-		<div class="card shadow-lg border-0" style="max-width: 650px; margin: 0 auto;">
-			<div class="card-body p-4">
+<main class="container my-5">
+    <div class="card shadow-lg border-0" style="max-width: 650px; margin: 0 auto;">
+        <div class="card-body p-4">
 
-				<h2 class="text-center text-primary mb-4">勤怠編集</h2>
+            <h2 class="mb-4 text-primary fw-bold text-center">勤怠編集</h2>
 
-				<!-- ▼ 勤怠編集フォーム -->
-				<form th:action="@{/attendance/edit}" method="post" th:object="${attendanceForm}">
+			<form th:action="@{/attendance/edit}" method="post" th:object="${attendanceForm}" class="p-4">
 
-					<!-- ▼ エラーメッセージ表示領域 -->
-					<div th:if="${errorMessage}" class="alert alert-danger text-center" th:text="${errorMessage}"></div>
-					<div th:if="${#fields.hasErrors('*')}" class="alert alert-danger text-center">
-						<ul class="mb-0" style="list-style: none; padding: 0;">
-							<li th:each="err : ${#fields.errors('*')}" th:text="${err}"></li>
-						</ul>
-					</div>
+			    <!-- エラーまとめて表示 -->
+			    <div th:if="${#fields.hasErrors()}" class="alert alert-danger mb-3">
+			        <ul class="mb-0" style="list-style: none; padding: 0;">
+			            <li th:each="err : ${#fields.errors('*')}" th:text="${err}"></li>
+			        </ul>
+			    </div>
 
-					<!-- 勤怠ID（非表示） -->
-					<input type="hidden" th:field="*{id}">
+			    <!-- 勤怠ID（hidden） -->
+			    <input type="hidden" th:field="*{id}">
 
-					<!-- 社員名（表示のみ＋hiddenで送信） -->
-					<div class="mb-3 row align-items-center">
-						<label class="col-sm-3 col-form-label fw-bold">社員名：</label>
-						<div class="col-sm-9">
-							<span th:text="*{employeeName}" class="fw-semibold"></span>
-							<input type="hidden" th:field="*{employeeName}">
-						</div>
-					</div>
+			    <!-- 社員名（表示のみ + hidden） -->
+			    <div class="mb-3 row align-items-center">
+			        <label class="col-sm-3 col-form-label fw-bold">社員名：</label>
+			        <div class="col-sm-9">
+			            <span th:text="*{employeeName}" class="fw-semibold"></span>
+			            <input type="hidden" th:field="*{employeeName}">
+			        </div>
+			    </div>
 
-					<!-- ★ 勤務日（表示のみ＋hiddenで送信） -->
-					<div class="mb-3 row align-items-center">
-						<label class="col-sm-3 col-form-label fw-bold">勤務日：</label>
-						<div class="col-sm-9">
-							<!-- 表示用（yyyy/MM/dd形式） -->
-							<span th:text="${#temporals.format(attendanceForm.workDate, 'yyyy/MM/dd')}"
-								class="fw-semibold"></span>
-							<!-- hiddenで値を送信 -->
-							<input type="hidden" th:field="*{workDate}">
-						</div>
-					</div>
+			    <!-- 勤務日（表示のみ + hidden） -->
+			    <div class="mb-3 row align-items-center">
+			        <label class="col-sm-3 col-form-label fw-bold">勤務日：</label>
+			        <div class="col-sm-9">
+			            <span th:text="${#temporals.format(attendanceForm.workDate, 'yyyy/MM/dd')}" class="fw-semibold"></span>
+			            <input type="hidden" th:field="*{workDate}">
+			        </div>
+			    </div>
 
-					<!-- 出勤時刻 -->
-					<div class="mb-3 row align-items-center">
-						<label for="checkInTime" class="col-sm-3 col-form-label fw-bold">出勤時刻：</label>
-						<div class="col-sm-9">
-							<input type="time" th:field="*{checkInTime}" id="checkInTime" class="form-control">
-							<div class="text-danger small mt-1" th:if="${#fields.hasErrors('checkInTime')}"
-								th:errors="*{checkInTime}"></div>
-						</div>
-					</div>
+			    <!-- 出勤時刻 -->
+			    <div class="mb-3 row align-items-center">
+			        <label class="col-sm-3 col-form-label fw-bold">出勤時刻：</label>
+			        <div class="col-sm-9">
+			            <input type="time" th:field="*{checkInTime}" class="form-control">
+			        </div>
+			    </div>
 
-					<!-- 退勤時刻 -->
-					<div class="mb-4 row align-items-center">
-						<label for="checkOutTime" class="col-sm-3 col-form-label fw-bold">退勤時刻：</label>
-						<div class="col-sm-9">
-							<input type="time" th:field="*{checkOutTime}" id="checkOutTime" class="form-control">
-							<div class="text-danger small mt-1" th:if="${#fields.hasErrors('checkOutTime')}"
-								th:errors="*{checkOutTime}"></div>
-						</div>
-					</div>
+			    <!-- 退勤時刻 -->
+			    <div class="mb-4 row align-items-center">
+			        <label class="col-sm-3 col-form-label fw-bold">退勤時刻：</label>
+			        <div class="col-sm-9">
+			            <input type="time" th:field="*{checkOutTime}" class="form-control">
+			        </div>
+			    </div>
 
-					<!-- ボタン（更新・キャンセル） -->
-					<div class="d-flex justify-content-start mt-4">
-						<button type="submit" class="btn btn-primary me-3 px-4">更新</button>
-						<a th:href="@{/attendance/list}" class="btn btn-outline-secondary px-4">キャンセル</a>
-					</div>
-				</form>
+			    <!-- ボタン -->
+			    <div class="d-flex justify-content-start mt-4">
+			        <button type="submit" class="btn btn-primary me-3 px-4">更新</button>
+			        <a th:href="@{/attendance/list}" class="btn btn-outline-secondary px-4">キャンセル</a>
+			    </div>
+			</form>
 
-			</div>
-		</div>
-	</main>
+        </div>
+    </div>
+</main>
 </body>
-
 </html>

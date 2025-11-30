@@ -12,6 +12,9 @@
 
 		<h2 class="mb-4 text-primary fw-bold text-center">勤務一覧</h2>
 
+		<!-- サービス例外用エラー表示 -->
+		<div th:if="${error}" class="alert alert-danger text-center" th:text="${error}"></div>
+
 		<table class="table table-striped table-hover align-middle shadow-sm">
 			<thead class="table-primary text-center">
 				<tr>
@@ -39,8 +42,12 @@
 					<!-- 退勤時刻 -->
 					<td th:text="${attendance.checkOutTimeText}">17:30</td>
 
-					<!-- 勤務時間（※休憩1時間差引済） -->
-					<td th:text="${attendance.workDurationText}">8時間30分（※休憩1時間差引済）</td>
+					<!-- 勤務時間 -->
+					<td>
+					    <span th:text="${attendance.workTime}"></span>
+					    <br th:if="${attendance.breakInfo != null}" />
+					    <small th:text="${attendance.breakInfo}"></small>
+					</td>
 
 					<!-- 操作ボタン -->
 					<td>

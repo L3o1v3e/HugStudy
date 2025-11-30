@@ -1,117 +1,143 @@
 package com.example.attendance.service;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.example.attendance.entity.Attendance;
-import com.example.attendance.entity.User;
+import com.example.attendance.dto.AttendanceDto;
+import com.example.attendance.entity.AttendanceEntity;
+import com.example.attendance.entity.UserEntity;
 import com.example.attendance.form.AttendanceForm;
 import com.example.attendance.repository.AttendanceRepository;
 import com.example.attendance.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
+@RequiredArgsConstructor
 public class AttendanceService {
 
-	@Autowired
-	private AttendanceRepository attendanceRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final UserRepository userRepository;
 
-	@Autowired
-	private UserRepository userRepository;
+    /** 出勤打刻 */
+    @Transactional
+    public void punchIn(AttendanceForm form) {
+        validatePunchIn(form);
 
-	/** 勤怠一覧取得 */
-	public List<Attendance> findAll() {
-		return attendanceRepository.findAll();
-	}
+        UserEntity employee = userRepository.findByName(form.getEmployeeName())
+                .orElseGet(() -> {
+                    UserEntity newUser = new UserEntity();
+                    newUser.setName(form.getEmployeeName());
+                    return userRepository.save(newUser);
+                });
 
-	/** 社員取得（存在しなければ自動登録） */
-	@Transactional
-	public User getOrCreateUser(String name) {
-		return userRepository.findByName(name)
-				.orElseGet(() -> {
-					User newUser = new User();
-					newUser.setName(name);
-					return userRepository.save(newUser);
-				});
-	}
+        if (attendanceRepository.findByEmployeeAndWorkDate(employee, form.getWorkDate()).isPresent()) {
+            throw new IllegalStateException("この日はすでに出勤済みです");
+        }
 
-	/** 出勤打刻処理 */
-	@Transactional
-	public void punchIn(AttendanceForm form) {
-		User user = getOrCreateUser(form.getEmployeeName());
-		LocalDate workDate = form.getWorkDate();
+        AttendanceEntity entity = new AttendanceEntity();
+        entity.setEmployee(employee);
+        entity.setEmployeeName(employee.getName());
+        entity.setWorkDate(form.getWorkDate());
+        entity.setCheckInTime(LocalDateTime.of(form.getWorkDate(), form.getCheckInTime()));
 
-		Attendance attendance = attendanceRepository
-				.findByEmployeeAndWorkDate(user, workDate)
-				.orElseGet(() -> {
-					Attendance a = new Attendance();
-					a.setEmployee(user); // ✅ employee_idをセット
-					a.setEmployeeName(user.getName());
-					a.setWorkDate(workDate);
-					return a;
-				});
+        attendanceRepository.save(entity);
+    }
 
-		attendance.setCheckInTime(LocalDateTime.now());
-		attendanceRepository.saveAndFlush(attendance);
-	}
+    /** 退勤打刻 */
+    @Transactional
+    public void punchOut(AttendanceForm form) {
+        validatePunchOut(form);
 
-	/** 退勤打刻処理（休憩1時間差し引き対応） */
-	@Transactional
-	public void punchOut(AttendanceForm form) {
-		User user = getOrCreateUser(form.getEmployeeName());
-		LocalDate workDate = form.getWorkDate();
+        UserEntity employee = userRepository.findByName(form.getEmployeeName())
+                .orElseThrow(() -> new NoSuchElementException("社員が存在しません"));
 
-		Attendance attendance = attendanceRepository
-				.findByEmployeeAndWorkDate(user, workDate)
-				.orElseThrow(() -> new IllegalArgumentException("出勤記録が存在しません。先に出勤を打刻してください。"));
+        AttendanceEntity entity = attendanceRepository.findByEmployeeAndWorkDate(employee, form.getWorkDate())
+                .orElseThrow(() -> new NoSuchElementException("出勤記録がありません"));
 
-		attendance.setCheckOutTime(LocalDateTime.now());
-		attendance.calculateWorkDurationWithConditionalBreak(1);
-		attendanceRepository.saveAndFlush(attendance);
+        LocalDateTime checkOutDateTime = LocalDateTime.of(form.getWorkDate(), form.getCheckOutTime());
 
-		// 勤務時間を再計算（休憩1時間を差し引く）
-		attendance.calculateWorkDurationWithConditionalBreak(1);
+        // 時間整合性チェック
+        if (!checkOutDateTime.isAfter(entity.getCheckInTime())) {
+            throw new IllegalArgumentException("退勤時刻は出勤時刻より後である必要があります");
+        }
+        if (checkOutDateTime.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("退勤時刻は未来時刻を指定できません");
+        }
 
-		attendanceRepository.saveAndFlush(attendance);
-	}
+        entity.setCheckOutTime(checkOutDateTime);
+        attendanceRepository.save(entity);
+    }
 
-	/** 勤怠データ取得（編集用） */
-	public Attendance findById(Long id) {
-		return attendanceRepository.findById(id)
-				.orElseThrow(() -> new IllegalArgumentException("指定された勤怠データが存在しません。"));
-	}
+    /** 勤怠一覧取得（DTO 変換） */
+    public List<AttendanceDto> findAllDtos() {
+        return attendanceRepository.findAllByOrderByWorkDateDesc()
+                .stream()
+                .map(AttendanceDto::new)
+                .toList();
+    }
 
-	/** 勤怠更新処理（編集時も再計算・休憩1時間差し引き） */
-	@Transactional
-	public void updateAttendance(AttendanceForm form) {
-		Attendance attendance = attendanceRepository.findById(form.getId())
-				.orElseThrow(() -> new IllegalArgumentException("指定された勤怠データが存在しません。"));
+    /** 勤怠取得（ID） */
+    public AttendanceEntity findById(Long id) {
+        return attendanceRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("勤怠が見つかりません id=" + id));
+    }
 
-		// 編集画面からworkDateが来ていない場合、既存の値を使う
-		LocalDate workDate = form.getWorkDate() != null
-				? form.getWorkDate()
-				: attendance.getWorkDate();
+    /** 勤怠削除 */
+    @Transactional
+    public void deleteById(Long id) {
+        AttendanceEntity entity = findById(id);
+        attendanceRepository.delete(entity);
+    }
 
-		if (form.getCheckInTime() != null) {
-			attendance.setCheckInTime(LocalDateTime.of(workDate, form.getCheckInTime()));
-		}
-		if (form.getCheckOutTime() != null) {
-			attendance.setCheckOutTime(LocalDateTime.of(workDate, form.getCheckOutTime()));
-		}
+    /** 勤怠更新（編集用部分更新） */
+    @Transactional
+    public void updateAttendancePartial(AttendanceEntity entity,
+                                        LocalDateTime newCheckIn,
+                                        LocalDateTime newCheckOut) {
+        if (newCheckIn != null) entity.setCheckInTime(newCheckIn);
+        if (newCheckOut != null) entity.setCheckOutTime(newCheckOut);
+        attendanceRepository.save(entity);
+    }
 
-		// 勤務時間を再計算（休憩1時間を差し引く）
-		attendance.calculateWorkDurationWithConditionalBreak(1);
+    /** 出勤バリデーション */
+    private void validatePunchIn(AttendanceForm form) {
+        if (form.getEmployeeName() == null || form.getEmployeeName().isBlank()) {
+            throw new IllegalArgumentException("社員名を入力してください");
+        }
+        if (!form.getEmployeeName().contains("　")) {
+            throw new IllegalArgumentException("社員名は姓と名の間に全角スペースを入れてください");
+        }
+        if (form.getCheckInTime() == null) {
+            throw new IllegalArgumentException("出勤時刻を入力してください");
+        }
+        if (form.getWorkDate() == null) {
+            throw new IllegalArgumentException("勤務日を入力してください");
+        }
+        if (form.getWorkDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("勤務日は未来日を指定できません");
+        }
+    }
 
-		attendanceRepository.save(attendance);
-	}
-
-	/** 勤怠削除処理 */
-	@Transactional
-	public void deleteById(Long id) {
-		attendanceRepository.deleteById(id);
-	}
+    /** 退勤バリデーション */
+    private void validatePunchOut(AttendanceForm form) {
+        if (form.getEmployeeName() == null || form.getEmployeeName().isBlank()) {
+            throw new IllegalArgumentException("社員名を入力してください");
+        }
+        if (!form.getEmployeeName().contains("　")) {
+            throw new IllegalArgumentException("社員名は姓と名の間に全角スペースを入れてください");
+        }
+        if (form.getCheckOutTime() == null) {
+            throw new IllegalArgumentException("退勤時刻を入力してください");
+        }
+        if (form.getWorkDate() == null) {
+            throw new IllegalArgumentException("勤務日を入力してください");
+        }
+        if (form.getWorkDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("勤務日は未来日を指定できません");
+        }
+    }
 }

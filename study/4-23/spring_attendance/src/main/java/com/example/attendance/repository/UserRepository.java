@@ -1,17 +1,14 @@
 package com.example.attendance.repository;
 
-import java.util.Optional;
-
+import com.example.attendance.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
-import com.example.attendance.entity.User;
+import java.util.Optional;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Integer> {
+public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
-	/**
-	 * 社員名で検索
-	 */
-	Optional<User> findByName(String name);
+    /** 社員名で検索（例：山田　太郎） */
+	Optional<UserEntity> findByName(String name);
+
 }
